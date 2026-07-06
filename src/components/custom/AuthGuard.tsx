@@ -6,15 +6,37 @@ import { LoginView } from '@/components/views/LoginView';
 import { RegisterView } from '@/components/views/RegisterView';
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { currentUser, isHydrated, currentView } = useProjectStore();
+  const { currentUser, currentView } = useProjectStore();
   const [mounted, setMounted] = useState(false);
+  const [isHydrated, setIsHydrated] = useState(false);
+  const [forceMount, setForceMount] = useState(false);
 
   useEffect(() => {
     setMounted(true);
+
+    // Lắng nghe sự kiện kết thúc hydration của Zustand persist ở Client-side
+    const unsub = useProjectStore.persist.onFinishHydration(() => {
+      setIsHydrated(true);
+    });
+
+    // Nếu store đã được hydrate sẵn trước đó
+    if (useProjectStore.persist.hasHydrated()) {
+      setIsHydrated(true);
+    }
+
+    // Liveness Fallback: Tránh kẹt vĩnh viễn ở màn hình loading sau 1.2 giây
+    const timer = setTimeout(() => {
+      setForceMount(true);
+    }, 1200);
+
+    return () => {
+      unsub();
+      clearTimeout(timer);
+    };
   }, []);
 
   // Trong lúc chờ Hydrated hoặc mounted, hiển thị loading screen
-  if (!mounted || !isHydrated) {
+  if (!mounted || (!isHydrated && !forceMount)) {
     return (
       <div className="fixed inset-0 bg-background flex flex-col items-center justify-center z-50">
         <div className="flex flex-col items-center gap-4">

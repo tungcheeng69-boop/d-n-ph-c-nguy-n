@@ -9,15 +9,24 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { currentUser, isHydrated } = useProjectStore();
   const [mounted, setMounted] = useState(false);
+  const [forceMount, setForceMount] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
+  // Liveness Fallback: Tránh kẹt vĩnh viễn ở màn hình loading nếu hydration bị chậm hoặc gặp lỗi storage
   useEffect(() => {
-    // Chỉ kiểm tra khi Zustand store đã được nạp dữ liệu từ localStorage
-    if (mounted && isHydrated) {
-      const isAuthPage = pathname === '/login' || pathname === '/register';
+    const timer = setTimeout(() => {
+      setForceMount(true);
+    }, 1800); // 1.8 giây liveness timeout
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    // Chỉ kiểm tra khi Zustand store đã được nạp dữ liệu từ localStorage hoặc khi forceMount kích hoạt
+    if (mounted && (isHydrated || forceMount)) {
+      const isAuthPage = pathname?.endsWith('/login') || pathname?.endsWith('/register');
       
       if (!currentUser && !isAuthPage) {
         // Chưa đăng nhập và truy cập trang được bảo vệ -> Redirect về Login
@@ -27,10 +36,10 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         router.replace('/');
       }
     }
-  }, [currentUser, isHydrated, pathname, router, mounted]);
+  }, [currentUser, isHydrated, pathname, router, mounted, forceMount]);
 
-  // Trong lúc chờ Hydrated hoặc mounted, hiển thị loading screen sang trọng
-  if (!mounted || !isHydrated) {
+  // Trong lúc chờ Hydrated hoặc mounted, hiển thị loading screen
+  if ((!mounted || !isHydrated) && !forceMount) {
     return (
       <div className="fixed inset-0 bg-background flex flex-col items-center justify-center z-50">
         <div className="flex flex-col items-center gap-4">
@@ -41,7 +50,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  const isAuthPage = pathname === '/login' || pathname === '/register';
+  const isAuthPage = pathname?.endsWith('/login') || pathname?.endsWith('/register');
   
   // Nếu chưa đăng nhập mà không ở trang auth -> Chặn render children để tránh nháy giao diện
   if (!currentUser && !isAuthPage) {

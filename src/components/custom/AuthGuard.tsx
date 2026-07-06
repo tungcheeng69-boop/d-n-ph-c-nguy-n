@@ -9,45 +9,59 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { currentUser, currentView } = useProjectStore();
   const [mounted, setMounted] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
-  const [forceMount, setForceMount] = useState(false);
+  const [hasLoggedInUser, setHasLoggedInUser] = useState(false);
 
   useEffect(() => {
     setMounted(true);
 
-    // Lắng nghe sự kiện kết thúc hydration của Zustand persist ở Client-side
+    // Đọc nhanh và đồng bộ localStorage để kiểm tra trạng thái đăng nhập trước đó
+    try {
+      const rawData = localStorage.getItem('techproject-storage');
+      if (rawData) {
+        const parsed = JSON.parse(rawData);
+        if (parsed?.state?.currentUser) {
+          setHasLoggedInUser(true);
+        }
+      }
+    } catch (e) {
+      // Bỏ qua lỗi nếu localStorage bị chặn
+    }
+
+    // Lắng nghe Zustand hydration
     const unsub = useProjectStore.persist.onFinishHydration(() => {
       setIsHydrated(true);
     });
 
-    // Nếu store đã được hydrate sẵn trước đó
     if (useProjectStore.persist.hasHydrated()) {
       setIsHydrated(true);
     }
 
-    // Liveness Fallback: Tránh kẹt vĩnh viễn ở màn hình loading sau 1.2 giây
-    const timer = setTimeout(() => {
-      setForceMount(true);
-    }, 1200);
-
-    return () => {
-      unsub();
-      clearTimeout(timer);
-    };
+    return () => unsub();
   }, []);
 
-  // Trong lúc chờ Hydrated hoặc mounted, hiển thị loading screen
-  if (!mounted || (!isHydrated && !forceMount)) {
-    return (
-      <div className="fixed inset-0 bg-background flex flex-col items-center justify-center z-50">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-muted-foreground font-medium animate-pulse">TECHPROJECT đang tải...</p>
-        </div>
-      </div>
-    );
+  // Trong lúc chờ React mounted, hiển thị màn hình nền trống tối giản để tránh mismatch
+  if (!mounted) {
+    return <div className="fixed inset-0 bg-slate-950 z-50" />;
   }
 
-  // Nếu chưa đăng nhập -> Chặn render và hiển thị trực tiếp LoginView / RegisterView dưới dạng SPA
+  // Nếu Zustand chưa nạp xong dữ liệu từ storage
+  if (!isHydrated) {
+    // Nếu phát hiện có user đã đăng nhập trước đó -> Hiển thị loading nhẹ chờ vào thẳng Dashboard (tránh flash Login)
+    if (hasLoggedInUser) {
+      return (
+        <div className="fixed inset-0 bg-slate-950 flex flex-col items-center justify-center z-50">
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      );
+    }
+    // Nếu chưa đăng nhập -> Hiển thị form Đăng nhập ngay lập tức không cần chờ đợi!
+    if (currentView === 'register') {
+      return <RegisterView />;
+    }
+    return <LoginView />;
+  }
+
+  // Khi Zustand đã nạp xong dữ liệu chính thức
   if (!currentUser) {
     if (currentView === 'register') {
       return <RegisterView />;

@@ -74,6 +74,9 @@ interface ProjectState {
   activityLogs: ActivityLog[];
   comments: Comment[];
   isHydrated: boolean;
+  currentView: string;
+  activeProjectId: string | null;
+  setView: (view: string, projectId?: string | null) => void;
 
   // Actions Auth
   registerUser: (email: string, name: string, role: UserRole, password?: string) => { success: boolean; message: string };
@@ -290,6 +293,9 @@ export const useProjectStore = create<ProjectState>()(
         },
       ],
       isHydrated: false,
+      currentView: 'dashboard',
+      activeProjectId: null,
+      setView: (view, projectId = null) => set({ currentView: view, activeProjectId: projectId }),
 
       // Actions Auth
       registerUser: (email, name, role, password) => {

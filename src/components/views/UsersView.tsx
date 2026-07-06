@@ -21,8 +21,11 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-export default function UsersManagementPage() {
-  const router = useRouter();
+interface UsersViewProps {
+  onViewChange: (view: string) => void;
+}
+
+export function UsersView({ onViewChange }: UsersViewProps) {
   const { users, currentUser, updateUser, deleteUser, resetUserPassword, registerUser } = useProjectStore();
 
   const [mounted, setMounted] = useState(false);
@@ -45,10 +48,10 @@ export default function UsersManagementPage() {
   useEffect(() => {
     setMounted(true);
     if (currentUser && currentUser.role !== 'ADMIN') {
-      router.replace('/');
+      onViewChange('dashboard');
       toast.error('Bạn không có quyền truy cập trang quản lý nhân sự.');
     }
-  }, [currentUser, router]);
+  }, [currentUser]);
 
   if (!mounted || !currentUser || currentUser.role !== 'ADMIN') {
     return (

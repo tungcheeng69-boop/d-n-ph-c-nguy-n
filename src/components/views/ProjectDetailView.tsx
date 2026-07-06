@@ -33,18 +33,12 @@ import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
-export default function ProjectDetailPage() {
-  return (
-    <Suspense fallback={<div className="text-center py-20 text-xs font-semibold text-muted-foreground">Đang tải chi tiết dự án...</div>}>
-      <ProjectDetailPageContent />
-    </Suspense>
-  );
+interface ProjectDetailViewProps {
+  projectId: string | null;
+  onViewChange: (view: string) => void;
 }
 
-function ProjectDetailPageContent() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const projectId = searchParams.get('id') as string;
+export function ProjectDetailView({ projectId, onViewChange }: ProjectDetailViewProps) {
 
   const {
     projects,
@@ -104,7 +98,7 @@ function ProjectDetailPageContent() {
       // Bảo vệ phân quyền xem chi tiết dự án: Các vai trò kỹ thuật chỉ xem dự án họ được giao
       const isFieldStaff = currentUser && ['COMMANDER', 'DEPUTY_COMMANDER', 'FIELD_ENGINEER', 'STAFF'].includes(currentUser.role);
       if (isFieldStaff && !foundProject.managerIds?.includes(currentUser.id)) {
-        router.replace('/projects');
+        onViewChange('projects');
         toast.error('Bạn không có quyền truy cập hồ sơ dự án này.');
         return;
       }
@@ -112,7 +106,7 @@ function ProjectDetailPageContent() {
     } else {
       setProject(null);
     }
-  }, [projects, projectId, currentUser, router]);
+  }, [projects, projectId, currentUser]);
 
   if (!mounted) return null;
 
@@ -124,7 +118,7 @@ function ProjectDetailPageContent() {
         <p className="text-xs text-muted-foreground">
           Dự án này đã bị xóa hoặc đường dẫn không chính xác.
         </p>
-        <Button onClick={() => router.push('/projects')} className="rounded-2xl cursor-pointer">
+        <Button onClick={() => onViewChange('projects')} className="rounded-2xl cursor-pointer">
           <ArrowLeft className="h-4 w-4 mr-1.5" />
           Về danh sách
         </Button>
@@ -311,7 +305,7 @@ function ProjectDetailPageContent() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-border/20">
         <Button
           variant="outline"
-          onClick={() => router.push('/projects')}
+          onClick={() => onViewChange('projects')}
           className="rounded-2xl border-border/20 h-10 text-xs font-bold cursor-pointer hover:bg-muted/30"
         >
           <ArrowLeft className="h-4 w-4 mr-1.5" />

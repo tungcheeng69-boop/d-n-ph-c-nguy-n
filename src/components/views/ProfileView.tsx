@@ -9,7 +9,11 @@ import { User, Mail, ShieldAlert, Wallet, Sparkles, Award, Gift, Edit3, Check } 
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 
-export default function ProfilePage() {
+interface ProfileViewProps {
+  onViewChange: (view: string) => void;
+}
+
+export function ProfileView({ onViewChange }: ProfileViewProps) {
   const { currentUser, updateProfile } = useProjectStore();
   const [mounted, setMounted] = useState(false);
 

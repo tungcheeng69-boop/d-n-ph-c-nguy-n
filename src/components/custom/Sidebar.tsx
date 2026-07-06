@@ -1,8 +1,6 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import { useProjectStore } from '@/store/useProjectStore';
 import { useSidebar } from './SidebarContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -12,32 +10,31 @@ import { cn } from '@/lib/utils';
 import { UserRole } from '@/store/useProjectStore';
 
 export function Sidebar() {
-  const pathname = usePathname();
-  const { currentUser, logoutUser } = useProjectStore();
+  const { currentUser, logoutUser, currentView, setView } = useProjectStore();
   const { isOpen, setIsOpen } = useSidebar();
 
   const navItems = [
-    { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-    { name: 'Quản lý Dự án', href: '/projects', icon: FolderKanban },
-    { name: 'Trang cá nhân', href: '/profile', icon: User },
+    { name: 'Dashboard', href: 'dashboard', icon: LayoutDashboard },
+    { name: 'Quản lý Dự án', href: 'projects', icon: FolderKanban },
+    { name: 'Trang cá nhân', href: 'profile', icon: User },
   ];
 
   if (currentUser?.role === 'ADMIN') {
-    navItems.push({ name: 'Quản lý nhân sự', href: '/users', icon: Users });
+    navItems.push({ name: 'Quản lý nhân sự', href: 'users', icon: Users });
   }
 
   const sidebarContent = (
     <div className="flex flex-col h-full glass-panel bg-gradient-to-b from-card/65 via-background/40 to-background/70 border-r border-border/10 text-card-foreground p-6 select-none shadow-2xl backdrop-blur-2xl">
       {/* Logo */}
       <div className="flex items-center justify-between mb-8">
-        <Link href="/" className="flex items-center gap-2.5 group">
+        <button onClick={() => { setView('dashboard'); setIsOpen(false); }} className="flex items-center gap-2.5 group bg-transparent border-0 p-0 cursor-pointer text-left">
           <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-primary-foreground font-black text-xl shadow-lg shadow-primary/20 group-hover:scale-105 transition-transform duration-300">
             T
           </div>
           <span className="font-black text-xl tracking-tight bg-gradient-to-r from-primary via-cyan-400 to-accent bg-clip-text text-transparent">
             TECHPROJECT
           </span>
-        </Link>
+        </button>
         {/* Nút đóng Sidebar trên mobile */}
         <Button
           variant="ghost"
@@ -92,26 +89,28 @@ export function Sidebar() {
       {/* Navigation Links */}
       <nav className="flex-1 space-y-2">
         {navItems.map((item) => {
-          const isActive = pathname === item.href;
+          const isActive = currentView === item.href || (item.href === 'projects' && currentView === 'project-detail');
           const Icon = item.icon;
 
           return (
-            <Link
+            <button
               key={item.href}
-              href={item.href}
-              onClick={() => setIsOpen(false)}
+              onClick={() => {
+                setView(item.href);
+                setIsOpen(false);
+              }}
               className={cn(
-                "flex items-center gap-3.5 px-4.5 py-3 rounded-2xl text-xs font-bold transition-all duration-300 border border-transparent cursor-pointer group",
+                "w-full flex items-center gap-3.5 px-4.5 py-3 rounded-2xl text-xs font-bold transition-all duration-300 border border-transparent cursor-pointer group text-left",
                 isActive
                   ? currentUser?.role === 'ADMIN'
                     ? "bg-accent text-accent-foreground shadow-lg shadow-accent/15 border-accent/20 scale-[1.02]"
                     : "bg-primary text-primary-foreground shadow-lg shadow-primary/15 border-primary/20 scale-[1.02]"
-                  : "text-muted-foreground hover:bg-muted/30 hover:text-foreground hover:border-border/10"
+                  : "text-muted-foreground hover:bg-muted/30 hover:text-foreground hover:border-border/10 bg-transparent"
               )}
             >
               <Icon className={cn("h-4.5 w-4.5 transition-transform duration-300", isActive ? "scale-110" : "group-hover:translate-x-0.5")} />
               {item.name}
-            </Link>
+            </button>
           );
         })}
       </nav>
@@ -123,6 +122,7 @@ export function Sidebar() {
           onClick={() => {
             setIsOpen(false);
             logoutUser();
+            setView('dashboard');
           }}
           className="w-full flex items-center justify-start gap-3.5 px-4.5 py-3 rounded-2xl text-xs font-bold text-destructive hover:bg-destructive/10 hover:text-destructive transition-all duration-300 border border-transparent hover:border-destructive/20 cursor-pointer"
         >

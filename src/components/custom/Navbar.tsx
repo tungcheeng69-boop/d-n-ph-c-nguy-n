@@ -1,11 +1,10 @@
 'use client';
 
 import React from 'react';
-import { usePathname, useRouter } from 'next/navigation';
 import { useProjectStore } from '@/store/useProjectStore';
 import { useSidebar } from './SidebarContext';
 import { ThemeToggle } from './ThemeToggle';
-import { Menu, Wallet, User as UserIcon, LogOut, Settings } from 'lucide-react';
+import { Menu, Wallet, User as UserIcon, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -15,21 +14,18 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import Link from 'next/link';
 
 export function Navbar() {
-  const pathname = usePathname();
-  const router = useRouter();
-  const { currentUser, logoutUser } = useProjectStore();
+  const { currentUser, logoutUser, currentView, setView } = useProjectStore();
   const { toggle } = useSidebar();
 
-  // Xác định Page Title dựa trên route
+  // Xác định Page Title dựa trên currentView
   const getPageTitle = () => {
-    if (pathname === '/') return 'Tổng quan hệ thống';
-    if (pathname === '/projects') return 'Quản lý dự án kỹ thuật';
-    if (pathname.startsWith('/projects/')) return 'Chi tiết dự án';
-    if (pathname === '/profile') return 'Thông tin cá nhân';
-    if (pathname === '/users') return 'Quản lý nhân sự';
+    if (currentView === 'dashboard') return 'Tổng quan hệ thống';
+    if (currentView === 'projects') return 'Quản lý dự án kỹ thuật';
+    if (currentView === 'project-detail') return 'Chi tiết dự án';
+    if (currentView === 'profile') return 'Thông tin cá nhân';
+    if (currentView === 'users') return 'Quản lý nhân sự';
     return 'TECHPROJECT';
   };
 
@@ -91,7 +87,7 @@ export function Navbar() {
               <DropdownMenuSeparator className="bg-border/40" />
               
               <DropdownMenuItem
-                onClick={() => router.push('/profile')}
+                onClick={() => setView('profile')}
                 className="rounded-xl cursor-pointer"
               >
                 <div className="flex w-full items-center gap-2 px-2.5 py-2">
@@ -103,7 +99,10 @@ export function Navbar() {
               <DropdownMenuSeparator className="bg-border/40" />
               
               <DropdownMenuItem
-                onClick={logoutUser}
+                onClick={() => {
+                  logoutUser();
+                  setView('dashboard');
+                }}
                 className="rounded-xl text-destructive focus:bg-destructive/10 focus:text-destructive cursor-pointer"
               >
                 <div className="flex w-full items-center gap-2 px-2.5 py-2">

@@ -1,45 +1,20 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
 import { useProjectStore } from '@/store/useProjectStore';
+import { LoginView } from '@/components/views/LoginView';
+import { RegisterView } from '@/components/views/RegisterView';
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const { currentUser, isHydrated } = useProjectStore();
+  const { currentUser, isHydrated, currentView } = useProjectStore();
   const [mounted, setMounted] = useState(false);
-  const [forceMount, setForceMount] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Liveness Fallback: Tránh kẹt vĩnh viễn ở màn hình loading nếu hydration bị chậm hoặc gặp lỗi storage
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setForceMount(true);
-    }, 1800); // 1.8 giây liveness timeout
-    return () => clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
-    // Chỉ kiểm tra khi Zustand store đã được nạp dữ liệu từ localStorage hoặc khi forceMount kích hoạt
-    if (mounted && (isHydrated || forceMount)) {
-      const isAuthPage = pathname?.endsWith('/login') || pathname?.endsWith('/register');
-      
-      if (!currentUser && !isAuthPage) {
-        // Chưa đăng nhập và truy cập trang được bảo vệ -> Redirect về Login
-        router.replace('/login');
-      } else if (currentUser && isAuthPage) {
-        // Đã đăng nhập và truy cập trang đăng nhập/đăng ký -> Redirect về Dashboard
-        router.replace('/');
-      }
-    }
-  }, [currentUser, isHydrated, pathname, router, mounted, forceMount]);
-
   // Trong lúc chờ Hydrated hoặc mounted, hiển thị loading screen
-  if ((!mounted || !isHydrated) && !forceMount) {
+  if (!mounted || !isHydrated) {
     return (
       <div className="fixed inset-0 bg-background flex flex-col items-center justify-center z-50">
         <div className="flex flex-col items-center gap-4">
@@ -50,18 +25,12 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  const isAuthPage = pathname?.endsWith('/login') || pathname?.endsWith('/register');
-  
-  // Nếu chưa đăng nhập mà không ở trang auth -> Chặn render children để tránh nháy giao diện
-  if (!currentUser && !isAuthPage) {
-    return (
-      <div className="fixed inset-0 bg-background flex flex-col items-center justify-center z-50">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-muted-foreground font-medium">Đang chuyển hướng...</p>
-        </div>
-      </div>
-    );
+  // Nếu chưa đăng nhập -> Chặn render và hiển thị trực tiếp LoginView / RegisterView dưới dạng SPA
+  if (!currentUser) {
+    if (currentView === 'register') {
+      return <RegisterView />;
+    }
+    return <LoginView />;
   }
 
   return <>{children}</>;

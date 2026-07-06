@@ -5,7 +5,7 @@ import { useProjectStore } from '@/store/useProjectStore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { User, Mail, ShieldAlert, Wallet, Sparkles, Award, Gift, Edit3, Check, Database, ExternalLink } from 'lucide-react';
+import { User, Mail, ShieldAlert, Wallet, Sparkles, Award, Gift, Edit3, Check, Database, ExternalLink, Cloud, Zap, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 
@@ -21,7 +21,12 @@ export function ProfileView({ onViewChange }: ProfileViewProps) {
     supabaseKey,
     isCloudConnected,
     setCloudConfig,
-    disconnectCloud
+    disconnectCloud,
+    instantSyncCode,
+    isInstantSyncConnected,
+    createInstantSync,
+    connectInstantSync,
+    disconnectInstantSync
   } = useProjectStore();
   const [mounted, setMounted] = useState(false);
 
@@ -33,6 +38,10 @@ export function ProfileView({ onViewChange }: ProfileViewProps) {
   const [inputUrl, setInputUrl] = useState(supabaseUrl || '');
   const [inputKey, setInputKey] = useState(supabaseKey || '');
   const [dbLoading, setDbLoading] = useState(false);
+
+  // States của Instant Sync
+  const [inputSyncCode, setInputSyncCode] = useState(instantSyncCode || '');
+  const [syncLoading, setSyncLoading] = useState(false);
 
   // Avatar presets cho người dùng click chọn nhanh
   const avatarPresets = [
@@ -207,6 +216,133 @@ export function ProfileView({ onViewChange }: ProfileViewProps) {
                   </Button>
                 </div>
               </form>
+            </CardContent>
+          </Card>
+
+          {/* CARD INSTANT CLOUD SYNC (ĐỒNG BỘ 1-CLICK MỚI) */}
+          <Card className="border border-border/40 bg-card rounded-3xl shadow-sm mt-6 neon-card-glow">
+            <CardHeader className="pb-3 border-b border-border/20">
+              <CardTitle className="text-sm font-bold tracking-tight flex items-center gap-1.5 text-primary">
+                <Zap className="h-4.5 w-4.5 fill-primary animate-pulse" />
+                Đồng bộ nhanh 1-Click (Instant Cloud Sync - Khuyên dùng)
+              </CardTitle>
+              <CardDescription className="text-[10px]">
+                Giải pháp đám mây tối giản: Không cần đăng ký tài khoản, không cần tạo bảng. Tạo mã và đồng bộ dữ liệu ngay lập tức!
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-6 space-y-5">
+              {/* Trạng thái kết nối */}
+              <div className={`p-4.5 rounded-2xl border flex items-center justify-between transition-colors duration-300 ${
+                isInstantSyncConnected 
+                  ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-500' 
+                  : 'border-amber-500/20 bg-amber-500/5 text-amber-500'
+              }`}>
+                <div className="flex items-center gap-2">
+                  <div className={`w-2.5 h-2.5 rounded-full ${isInstantSyncConnected ? 'bg-emerald-500 animate-ping' : 'bg-amber-500'}`} />
+                  <div className="text-xs font-bold uppercase tracking-wider">
+                    Trạng thái: {isInstantSyncConnected ? `Đang Online (Mã: ${instantSyncCode})` : 'Chế độ ngoại tuyến (OFFLINE)'}
+                  </div>
+                </div>
+                {isInstantSyncConnected && (
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => {
+                        navigator.clipboard.writeText(instantSyncCode);
+                        toast.success('Đã copy mã đồng bộ vào bộ nhớ tạm.');
+                      }}
+                      variant="outline"
+                      className="rounded-xl h-8 px-2.5 text-[10px] font-black uppercase tracking-wider border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/10 cursor-pointer"
+                    >
+                      <Copy className="h-3 w-3 mr-1" /> Copy mã
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        disconnectInstantSync();
+                        toast.success('Đã ngắt kết nối Instant Sync. Khôi phục dữ liệu mẫu ban đầu.');
+                      }}
+                      variant="outline"
+                      className="rounded-xl h-8 text-[10px] font-black uppercase tracking-wider border-destructive/20 text-destructive hover:bg-destructive/10 cursor-pointer"
+                    >
+                      Ngắt kết nối
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {!isInstantSyncConnected ? (
+                <div className="space-y-4">
+                  {/* Nhập mã đồng bộ có sẵn */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                      Kết nối bằng Mã đồng bộ có sẵn
+                    </label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={inputSyncCode}
+                        onChange={(e) => setInputSyncCode(e.target.value)}
+                        placeholder="Nhập mã đồng bộ (Sync Code) của bạn..."
+                        className="rounded-2xl border-border bg-muted/10 h-11 text-xs flex-1"
+                      />
+                      <Button
+                        onClick={async () => {
+                          if (!inputSyncCode.trim()) {
+                            toast.error('Vui lòng nhập mã đồng bộ.');
+                            return;
+                          }
+                          setSyncLoading(true);
+                          const result = await connectInstantSync(inputSyncCode.trim());
+                          setSyncLoading(false);
+                          if (result.success) {
+                            toast.success(result.message);
+                          } else {
+                            toast.error(result.message);
+                          }
+                        }}
+                        disabled={syncLoading}
+                        className="rounded-2xl h-11 px-5 text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/95 cursor-pointer"
+                      >
+                        {syncLoading ? (
+                          <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin"></div>
+                        ) : (
+                          'Kết nối'
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Hoặc tạo mã mới */}
+                  <div className="pt-3 border-t border-border/10 text-center">
+                    <p className="text-[10px] text-muted-foreground mb-3 font-semibold">
+                      Hoặc nếu bạn là Admin khởi tạo dữ liệu cho công trình:
+                    </p>
+                    <Button
+                      onClick={async () => {
+                        setSyncLoading(true);
+                        const result = await createInstantSync();
+                        setSyncLoading(false);
+                        if (result.success && result.syncCode) {
+                          setInputSyncCode(result.syncCode);
+                          toast.success('Đã khởi tạo mã đồng bộ đám mây mới thành công!');
+                        } else {
+                          toast.error(result.message);
+                        }
+                      }}
+                      disabled={syncLoading}
+                      variant="outline"
+                      className="w-full rounded-2xl h-11 text-xs font-bold border-primary/20 text-primary hover:bg-primary/10 cursor-pointer flex items-center justify-center gap-1.5"
+                    >
+                      <Cloud className="h-4 w-4" />
+                      Tạo Mã Đồng bộ Đám mây mới
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-emerald-500/5 border border-emerald-500/10 p-4.5 rounded-2xl space-y-2">
+                  <p className="text-[10px] text-emerald-500 leading-relaxed font-semibold">
+                    🎉 Đã kích hoạt Instant Cloud Sync! Chia sẻ mã <strong>{instantSyncCode}</strong> này cho những người dùng khác dán vào mục này trên máy của họ. Dữ liệu sẽ tự động đồng bộ thời gian thực mỗi 8 giây trên mọi thiết bị và máy tính!
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
 

@@ -99,6 +99,14 @@ interface ProjectState {
   disconnectCloud: () => void;
   fetchCloudData: () => Promise<void>;
 
+  // Instant Cloud Sync Config (npoint.io)
+  instantSyncCode: string;
+  isInstantSyncConnected: boolean;
+  createInstantSync: () => Promise<{ success: boolean; syncCode?: string; message: string }>;
+  connectInstantSync: (code: string) => Promise<{ success: boolean; message: string }>;
+  disconnectInstantSync: () => void;
+  fetchInstantSyncData: () => Promise<void>;
+
   // Actions Auth
   registerUser: (email: string, name: string, role: UserRole, password?: string) => { success: boolean; message: string };
   loginUser: (email: string, password?: string) => { success: boolean; message: string };
@@ -310,6 +318,37 @@ export const useProjectStore = create<ProjectState>()(
         return createDynamicSupabaseClient(supabaseUrl, supabaseKey);
       };
 
+      // Helper tự động push dữ liệu lên npoint.io (Instant Cloud Sync)
+      const triggerInstantSyncPush = async () => {
+        const { isInstantSyncConnected, instantSyncCode, users, projects, activityLogs, comments } = get();
+        if (!isInstantSyncConnected || !instantSyncCode) return;
+        try {
+          await fetch(`https://api.npoint.io/documents/${instantSyncCode}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              users,
+              projects,
+              activityLogs,
+              comments
+            })
+          });
+        } catch (error) {
+          console.error('Lỗi triggerInstantSyncPush:', error);
+        }
+      };
+
+      // Gọi đồng bộ cloud thích hợp sau khi thay đổi dữ liệu
+      const handleSyncPush = async () => {
+        // 1. Supabase
+        const client = getClient();
+        if (client) {
+          // Trực tiếp update các mutations cụ thể hoặc push đồng bộ qua api
+        }
+        // 2. Instant Sync (npoint)
+        await triggerInstantSyncPush();
+      };
+
       return {
         users: FAKE_USERS,
         currentUser: null,
@@ -378,7 +417,14 @@ export const useProjectStore = create<ProjectState>()(
             const { error } = await client.from('techproject_users').select('*', { count: 'exact', head: true });
             if (error) throw error;
 
-            set({ supabaseUrl: url, supabaseKey: key, isCloudConnected: true });
+            // Ngắt kết nối Instant Sync trước khi sang Supabase
+            set({
+              supabaseUrl: url,
+              supabaseKey: key,
+              isCloudConnected: true,
+              instantSyncCode: '',
+              isInstantSyncConnected: false
+            });
 
             const currentData = {
               users: get().users,
@@ -389,7 +435,6 @@ export const useProjectStore = create<ProjectState>()(
 
             const pushed = await pushLocalDataToCloud(client, currentData);
             if (!pushed) {
-              // Nếu cloud database đã có sẵn dữ liệu -> Kéo về ghi đè local
               await get().fetchCloudData();
             }
 
@@ -405,7 +450,6 @@ export const useProjectStore = create<ProjectState>()(
             supabaseUrl: '',
             supabaseKey: '',
             isCloudConnected: false,
-            // Reset dữ liệu về fake mặc định ban đầu khi ngắt kết nối đám mây
             users: FAKE_USERS,
             projects: FAKE_PROJECTS,
             currentUser: null,
@@ -423,7 +467,6 @@ export const useProjectStore = create<ProjectState>()(
               activityLogs: cloudData.activityLogs,
               comments: cloudData.comments,
             });
-            // Đồng bộ trạng thái currentUser nếu vẫn tồn tại trên DB
             const { currentUser, users } = get();
             if (currentUser) {
               const matchedUser = users.find((u) => u.id === currentUser.id);
@@ -435,6 +478,117 @@ export const useProjectStore = create<ProjectState>()(
             }
           } catch (error) {
             console.error('Lỗi fetchCloudData:', error);
+          }
+        },
+
+        // Instant Cloud Sync npoint.io Implementation
+        instantSyncCode: '',
+        isInstantSyncConnected: false,
+
+        createInstantSync: async () => {
+          try {
+            const currentData = {
+              users: get().users,
+              projects: get().projects,
+              activityLogs: get().activityLogs,
+              comments: get().comments,
+            };
+
+            const response = await fetch('https://api.npoint.io/documents', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(currentData),
+            });
+
+            if (!response.ok) {
+              throw new Error('Không thể khởi tạo document trên npoint.io');
+            }
+
+            const resData = await response.json();
+            const code = resData.id;
+
+            // Ngắt kết nối Supabase khi bật Instant Sync
+            set({
+              instantSyncCode: code,
+              isInstantSyncConnected: true,
+              supabaseUrl: '',
+              supabaseKey: '',
+              isCloudConnected: false
+            });
+
+            return { success: true, syncCode: code, message: 'Đã tạo mã đồng bộ thành công!' };
+          } catch (error: any) {
+            console.error(error);
+            return { success: false, message: error.message || 'Lỗi khởi tạo Instant Sync.' };
+          }
+        },
+
+        connectInstantSync: async (code) => {
+          try {
+            const response = await fetch(`https://api.npoint.io/documents/${code}`);
+            if (!response.ok) {
+              throw new Error('Mã đồng bộ không tồn tại hoặc đã hết hạn.');
+            }
+
+            const data = await response.json();
+            if (!data.users || !data.projects) {
+              throw new Error('Dữ liệu đồng bộ không đúng định dạng.');
+            }
+
+            // Kết nối thành công -> Lưu code
+            set({
+              instantSyncCode: code,
+              isInstantSyncConnected: true,
+              supabaseUrl: '',
+              supabaseKey: '',
+              isCloudConnected: false,
+              users: data.users,
+              projects: data.projects,
+              activityLogs: data.activityLogs || [],
+              comments: data.comments || []
+            });
+
+            return { success: true, message: 'Đồng bộ dữ liệu thành công!' };
+          } catch (error: any) {
+            console.error(error);
+            return { success: false, message: error.message || 'Lỗi kết nối Instant Sync.' };
+          }
+        },
+
+        disconnectInstantSync: () => {
+          set({
+            instantSyncCode: '',
+            isInstantSyncConnected: false,
+            users: FAKE_USERS,
+            projects: FAKE_PROJECTS,
+            currentUser: null
+          });
+        },
+
+        fetchInstantSyncData: async () => {
+          const { isInstantSyncConnected, instantSyncCode } = get();
+          if (!isInstantSyncConnected || !instantSyncCode) return;
+          try {
+            const response = await fetch(`https://api.npoint.io/documents/${instantSyncCode}`);
+            if (!response.ok) return;
+            const data = await response.json();
+            if (data.users && data.projects) {
+              set({
+                users: data.users,
+                projects: data.projects,
+                activityLogs: data.activityLogs || [],
+                comments: data.comments || []
+              });
+              // Sync currentUser
+              const { currentUser, users } = get();
+              if (currentUser) {
+                const matched = users.find((u) => u.id === currentUser.id);
+                if (matched) set({ currentUser: matched });
+                else set({ currentUser: null });
+              }
+            }
+          } catch (error) {
+            console.error('Lỗi fetchInstantSyncData:', error);
           }
         },
 
@@ -460,6 +614,7 @@ export const useProjectStore = create<ProjectState>()(
           if (client) {
             dbAddUser(client, newUser);
           }
+          handleSyncPush();
 
           return { success: true, message: 'Đăng ký tài khoản thành công.' };
         },
@@ -495,6 +650,7 @@ export const useProjectStore = create<ProjectState>()(
           if (client) {
             dbUpdateUser(client, currentUser.id, { name, avatar });
           }
+          handleSyncPush();
         },
 
         updateUser: (userId, updatedFields) => {
@@ -511,6 +667,7 @@ export const useProjectStore = create<ProjectState>()(
           if (client) {
             dbUpdateUser(client, userId, updatedFields);
           }
+          handleSyncPush();
         },
 
         deleteUser: (userId) => {
@@ -525,6 +682,7 @@ export const useProjectStore = create<ProjectState>()(
           if (client) {
             dbDeleteUser(client, userId);
           }
+          handleSyncPush();
         },
 
         resetUserPassword: (userId, newPassword) => {
@@ -538,6 +696,7 @@ export const useProjectStore = create<ProjectState>()(
           if (client) {
             dbUpdateUser(client, userId, { password: newPassword });
           }
+          handleSyncPush();
         },
 
         // Actions Projects
@@ -572,6 +731,7 @@ export const useProjectStore = create<ProjectState>()(
                 : 'Đã hoàn thành'
             }]`
           );
+          handleSyncPush();
         },
 
         updateProject: (id, updatedFields) => {
@@ -598,6 +758,7 @@ export const useProjectStore = create<ProjectState>()(
 
           const fieldKeys = Object.keys(updatedFields).join(', ');
           get().addLog(id, `Đã cập nhật thông tin dự án (Trường cập nhật: ${fieldKeys})`);
+          handleSyncPush();
         },
 
         deleteProject: (id) => {
@@ -614,6 +775,7 @@ export const useProjectStore = create<ProjectState>()(
           if (client) {
             dbDeleteProject(client, id);
           }
+          handleSyncPush();
         },
 
         changeProjectStatus: (id, status) => {
@@ -689,6 +851,7 @@ export const useProjectStore = create<ProjectState>()(
             id,
             `Đã chuyển trạng thái từ [${statusTexts[prevStatus]}] sang [${statusTexts[status]}]${bonusMsg}.`
           );
+          handleSyncPush();
         },
 
         // Actions Materials
@@ -737,6 +900,7 @@ export const useProjectStore = create<ProjectState>()(
 
           const actionText = isUpdated ? 'Đã cập nhật dồn số lượng' : 'Đã thêm mới';
           get().addLog(projectId, `${actionText} vật tư: ${materialData.name} (Số lượng: ${materialData.quantity})`);
+          handleSyncPush();
         },
 
         updateMaterialImage: (projectId, materialId, image) => {
@@ -765,6 +929,7 @@ export const useProjectStore = create<ProjectState>()(
           if (material) {
             get().addLog(projectId, `Đã cập nhật ảnh kiểm tra cho vật tư: ${material.name}`);
           }
+          handleSyncPush();
         },
 
         deleteMaterial: (projectId, materialId) => {
@@ -793,6 +958,7 @@ export const useProjectStore = create<ProjectState>()(
           }
 
           get().addLog(projectId, `Đã xóa vật tư: ${material.name}`);
+          handleSyncPush();
         },
 
         // Actions Handovers
@@ -824,6 +990,7 @@ export const useProjectStore = create<ProjectState>()(
           }
 
           get().addLog(projectId, `Đã thêm đợt bàn giao mới: ${phaseData.name} (Ngày dự kiến: ${phaseData.date})`);
+          handleSyncPush();
         },
 
         toggleHandoverStatus: (projectId, phaseId) => {
@@ -873,6 +1040,7 @@ export const useProjectStore = create<ProjectState>()(
               String(newStatus) === 'COMPLETED' ? 'Hoàn thành' : 'Đang chờ'
             }] (Tự động cập nhật tiến độ dự án)`
           );
+          handleSyncPush();
         },
 
         deleteHandoverPhase: (projectId, phaseId) => {
@@ -910,6 +1078,7 @@ export const useProjectStore = create<ProjectState>()(
           }
 
           get().addLog(projectId, `Đã xóa đợt bàn giao: ${phase.name}`);
+          handleSyncPush();
         },
 
         // Actions Comments & Logs
@@ -937,6 +1106,7 @@ export const useProjectStore = create<ProjectState>()(
           }
 
           get().addLog(projectId, `Đã bình luận: "${content.substring(0, 30)}${content.length > 30 ? '...' : ''}"`);
+          handleSyncPush();
         },
 
         addLog: (projectId, action) => {
@@ -958,6 +1128,7 @@ export const useProjectStore = create<ProjectState>()(
           if (client) {
             dbAddLog(client, newLog);
           }
+          handleSyncPush();
         },
 
         setHydrated: () => set({ isHydrated: true }),

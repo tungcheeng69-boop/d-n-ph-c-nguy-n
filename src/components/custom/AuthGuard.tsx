@@ -6,24 +6,39 @@ import { LoginView } from '@/components/views/LoginView';
 import { RegisterView } from '@/components/views/RegisterView';
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { currentUser, currentView, isCloudConnected, fetchCloudData } = useProjectStore();
+  const {
+    currentUser,
+    currentView,
+    isCloudConnected,
+    fetchCloudData,
+    isInstantSyncConnected,
+    fetchInstantSyncData
+  } = useProjectStore();
   const [mounted, setMounted] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
   const [hasLoggedInUser, setHasLoggedInUser] = useState(false);
 
   // Polling đồng bộ đám mây định kỳ 8 giây/lần khi ở Dashboard chính
   useEffect(() => {
-    if (!isCloudConnected || !currentUser) return;
+    if (!currentUser) return;
 
-    // Fetch dữ liệu cloud ngay khi đăng nhập thành công
-    fetchCloudData();
+    if (isCloudConnected) {
+      fetchCloudData();
+    } else if (isInstantSyncConnected) {
+      fetchInstantSyncData();
+    }
 
     const interval = setInterval(() => {
-      fetchCloudData();
+      const state = useProjectStore.getState();
+      if (state.isCloudConnected) {
+        state.fetchCloudData();
+      } else if (state.isInstantSyncConnected) {
+        state.fetchInstantSyncData();
+      }
     }, 8000);
 
     return () => clearInterval(interval);
-  }, [isCloudConnected, currentUser, fetchCloudData]);
+  }, [isCloudConnected, isInstantSyncConnected, currentUser, fetchCloudData, fetchInstantSyncData]);
 
   useEffect(() => {
     setMounted(true);

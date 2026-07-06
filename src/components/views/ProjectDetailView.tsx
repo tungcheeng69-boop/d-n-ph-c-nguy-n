@@ -95,13 +95,6 @@ export function ProjectDetailView({ projectId, onViewChange }: ProjectDetailView
     setMounted(true);
     const foundProject = projects.find((p) => p.id === projectId);
     if (foundProject) {
-      // Bảo vệ phân quyền xem chi tiết dự án: Các vai trò kỹ thuật chỉ xem dự án họ được giao
-      const isFieldStaff = currentUser && ['COMMANDER', 'DEPUTY_COMMANDER', 'FIELD_ENGINEER', 'STAFF'].includes(currentUser.role);
-      if (isFieldStaff && !foundProject.managerIds?.includes(currentUser.id)) {
-        onViewChange('projects');
-        toast.error('Bạn không có quyền truy cập hồ sơ dự án này.');
-        return;
-      }
       setProject(foundProject);
     } else {
       setProject(null);

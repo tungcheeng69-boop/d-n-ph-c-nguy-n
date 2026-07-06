@@ -5,7 +5,7 @@ import { useProjectStore } from '@/store/useProjectStore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { User, Mail, ShieldAlert, Wallet, Sparkles, Award, Gift, Edit3, Check } from 'lucide-react';
+import { User, Mail, ShieldAlert, Wallet, Sparkles, Award, Gift, Edit3, Check, Database, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 
@@ -14,12 +14,25 @@ interface ProfileViewProps {
 }
 
 export function ProfileView({ onViewChange }: ProfileViewProps) {
-  const { currentUser, updateProfile } = useProjectStore();
+  const {
+    currentUser,
+    updateProfile,
+    supabaseUrl,
+    supabaseKey,
+    isCloudConnected,
+    setCloudConfig,
+    disconnectCloud
+  } = useProjectStore();
   const [mounted, setMounted] = useState(false);
 
   const [name, setName] = useState('');
   const [avatar, setAvatar] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // States của Cloud DB
+  const [inputUrl, setInputUrl] = useState(supabaseUrl || '');
+  const [inputKey, setInputKey] = useState(supabaseKey || '');
+  const [dbLoading, setDbLoading] = useState(false);
 
   // Avatar presets cho người dùng click chọn nhanh
   const avatarPresets = [
@@ -194,6 +207,129 @@ export function ProfileView({ onViewChange }: ProfileViewProps) {
                   </Button>
                 </div>
               </form>
+            </CardContent>
+          </Card>
+
+          {/* CARD SUPABASE CLOUD DATABASE CONFIG */}
+          <Card className="border border-border/40 bg-card rounded-3xl shadow-sm mt-6">
+            <CardHeader className="pb-3 border-b border-border/20">
+              <CardTitle className="text-sm font-bold tracking-tight flex items-center gap-1.5">
+                <Database className="h-4.5 w-4.5 text-primary animate-pulse" />
+                Đồng bộ Cơ sở dữ liệu đám mây (Supabase Cloud Sync)
+              </CardTitle>
+              <CardDescription className="text-[10px]">
+                Kết nối tới Supabase Database của bạn để tự động đồng bộ dữ liệu công trình thời gian thực giữa máy tính và điện thoại.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-6 space-y-5">
+              {/* Trạng thái kết nối */}
+              <div className={`p-4.5 rounded-2xl border flex items-center justify-between transition-colors duration-300 ${
+                isCloudConnected 
+                  ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-500' 
+                  : 'border-amber-500/20 bg-amber-500/5 text-amber-500'
+              }`}>
+                <div className="flex items-center gap-2">
+                  <div className={`w-2.5 h-2.5 rounded-full ${isCloudConnected ? 'bg-emerald-500 animate-ping' : 'bg-amber-500'}`} />
+                  <div className="text-xs font-bold uppercase tracking-wider">
+                    Trạng thái: {isCloudConnected ? 'Đã kết nối đám mây (ONLINE)' : 'Chế độ ngoại tuyến (OFFLINE)'}
+                  </div>
+                </div>
+                {isCloudConnected && (
+                  <Button
+                    onClick={() => {
+                      disconnectCloud();
+                      toast.success('Đã ngắt kết nối đám mây. Dữ liệu mẫu ban đầu đã được khôi phục.');
+                    }}
+                    variant="outline"
+                    className="rounded-xl h-8 text-[10px] font-black uppercase tracking-wider border-destructive/20 text-destructive hover:bg-destructive/10 cursor-pointer"
+                  >
+                    Ngắt kết nối
+                  </Button>
+                )}
+              </div>
+
+              {!isCloudConnected ? (
+                <div className="space-y-4">
+                  {/* Supabase URL */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                      Supabase Project URL
+                    </label>
+                    <Input
+                      value={inputUrl}
+                      onChange={(e) => setInputUrl(e.target.value)}
+                      placeholder="https://your-project-id.supabase.co"
+                      className="rounded-2xl border-border bg-muted/10 h-11 text-xs"
+                    />
+                  </div>
+
+                  {/* Supabase Anon Key */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                      Supabase Anon API Key
+                    </label>
+                    <Input
+                      value={inputKey}
+                      onChange={(e) => setInputKey(e.target.value)}
+                      type="password"
+                      placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                      className="rounded-2xl border-border bg-muted/10 h-11 text-xs"
+                    />
+                  </div>
+
+                  {/* Nút Kết nối */}
+                  <Button
+                    onClick={async () => {
+                      if (!inputUrl.trim() || !inputKey.trim()) {
+                        toast.error('Vui lòng nhập đầy đủ URL và API Key của Supabase.');
+                        return;
+                      }
+                      setDbLoading(true);
+                      const result = await setCloudConfig(inputUrl.trim(), inputKey.trim());
+                      setDbLoading(false);
+                      if (result.success) {
+                        toast.success(result.message);
+                      } else {
+                        toast.error(result.message);
+                      }
+                    }}
+                    disabled={dbLoading}
+                    className="w-full rounded-2xl h-11 text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/95 cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    {dbLoading ? (
+                      <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <>
+                        <Database className="h-4 w-4" />
+                        Kết nối & Đồng bộ dữ liệu
+                      </>
+                    )}
+                  </Button>
+
+                  {/* Hướng dẫn SQL schema */}
+                  <div className="pt-3 border-t border-border/10">
+                    <div className="bg-slate-950/20 border border-border/10 p-4.5 rounded-2xl space-y-2">
+                      <p className="text-[10px] text-muted-foreground leading-relaxed font-semibold">
+                        💡 Hướng dẫn tạo bảng trên Supabase: Trước khi kết nối, bạn cần truy cập vào trang quản trị Supabase project của bạn, click vào mục <strong>SQL Editor</strong> ở thanh menu bên trái, paste nội dung file script tạo bảng <strong>supabase_schema.sql</strong> và bấm <strong>Run</strong> để tạo 4 bảng dữ liệu dùng chung.
+                      </p>
+                      <a
+                        href="https://github.com/tungcheeng69-boop/d-n-ph-c-nguy-n/blob/main/supabase_schema.sql"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[10px] text-primary hover:underline font-black inline-flex items-center gap-1"
+                      >
+                        Xem file supabase_schema.sql trên GitHub <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-emerald-500/5 border border-emerald-500/10 p-4.5 rounded-2xl space-y-2">
+                  <p className="text-[10px] text-emerald-500 leading-relaxed font-semibold flex items-start gap-1.5">
+                    🚀 Hệ thống đang hoạt động ở chế độ ONLINE. Mọi thao tác cập nhật vật tư, bình luận, thêm đợt bàn giao hay tạo dự án sẽ tự động đồng bộ ngay lập tức lên cơ sở dữ liệu Supabase dùng chung. Điện thoại di động và các máy tính khác của các nhân sự phụ trách cũng sẽ tự động đồng bộ thời gian thực cứ sau 8 giây!
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

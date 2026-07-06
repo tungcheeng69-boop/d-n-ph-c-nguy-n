@@ -6,10 +6,24 @@ import { LoginView } from '@/components/views/LoginView';
 import { RegisterView } from '@/components/views/RegisterView';
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { currentUser, currentView } = useProjectStore();
+  const { currentUser, currentView, isCloudConnected, fetchCloudData } = useProjectStore();
   const [mounted, setMounted] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
   const [hasLoggedInUser, setHasLoggedInUser] = useState(false);
+
+  // Polling đồng bộ đám mây định kỳ 8 giây/lần khi ở Dashboard chính
+  useEffect(() => {
+    if (!isCloudConnected || !currentUser) return;
+
+    // Fetch dữ liệu cloud ngay khi đăng nhập thành công
+    fetchCloudData();
+
+    const interval = setInterval(() => {
+      fetchCloudData();
+    }, 8000);
+
+    return () => clearInterval(interval);
+  }, [isCloudConnected, currentUser, fetchCloudData]);
 
   useEffect(() => {
     setMounted(true);

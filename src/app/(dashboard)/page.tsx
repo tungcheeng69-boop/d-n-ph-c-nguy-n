@@ -248,7 +248,7 @@ export default function DashboardPage() {
                               <Badge className="bg-primary/10 text-primary border border-primary/20 rounded-xl text-[9px] font-black">
                                 Tiến độ: {p.progress}%
                               </Badge>
-                              <Link href={`/projects/${p.id}`}>
+                              <Link href={`/projects/detail?id=${p.id}`}>
                                 <Button size="icon" variant="ghost" className="h-8 w-8 rounded-xl hover:bg-muted cursor-pointer shrink-0">
                                   <ChevronRight className="h-4 w-4" />
                                 </Button>
@@ -285,7 +285,7 @@ export default function DashboardPage() {
                     </div>
                   ) : (
                     pendingMaterials.map((m) => (
-                      <Link href={`/projects/${m.projectId}`} key={m.id} className="block group">
+                      <Link href={`/projects/detail?id=${m.projectId}`} key={m.id} className="block group">
                         <div className="p-3 border border-border/10 rounded-2xl bg-muted/10 hover:bg-muted/30 transition-all duration-300">
                           <p className="text-xs font-bold text-foreground group-hover:text-primary truncate">{m.name}</p>
                           <div className="flex justify-between items-center mt-2 text-[9px] text-muted-foreground font-semibold uppercase tracking-wider">
@@ -317,7 +317,7 @@ export default function DashboardPage() {
                     </div>
                   ) : (
                     pendingHandovers.map((h) => (
-                      <Link href={`/projects/${h.projectId}`} key={h.id} className="block group">
+                      <Link href={`/projects/detail?id=${h.projectId}`} key={h.id} className="block group">
                         <div className="p-3 border border-border/10 rounded-2xl bg-muted/10 hover:bg-muted/30 transition-all duration-300">
                           <p className="text-xs font-bold text-foreground group-hover:text-primary truncate">{h.name}</p>
                           <div className="flex justify-between items-center mt-2 text-[9px] text-muted-foreground font-semibold uppercase tracking-wider">
@@ -357,7 +357,7 @@ export default function DashboardPage() {
                         <div key={h.id} className="flex items-center justify-between py-3.5 first:pt-0 last:pb-0 gap-4">
                           <div className="min-w-0 flex-1 space-y-1">
                             <h4 className="text-xs font-bold text-foreground truncate hover:text-primary transition-colors">
-                              <Link href={`/projects/${h.projectId}`}>{h.name}</Link>
+                              <Link href={`/projects/detail?id=${h.projectId}`}>{h.name}</Link>
                             </h4>
                             <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider truncate">
                               Dự án: {h.projectName}
@@ -367,7 +367,7 @@ export default function DashboardPage() {
                             <Badge className="bg-amber-500/10 text-amber-500 border border-amber-500/20 rounded-xl text-[9px] font-black shrink-0">
                               Hạn: {h.date}
                             </Badge>
-                            <Link href={`/projects/${h.projectId}`}>
+                            <Link href={`/projects/detail?id=${h.projectId}`}>
                               <Button size="sm" variant="outline" className="h-7 text-[10px] font-bold rounded-xl cursor-pointer shrink-0">
                                 Xem chi tiết
                               </Button>
@@ -434,7 +434,7 @@ export default function DashboardPage() {
                 }
 
                 return (
-                  <Link href={`/projects/${project.id}`} key={project.id} className="block group">
+                  <Link href={`/projects/detail?id=${project.id}`} key={project.id} className="block group">
                     <div className={`p-3.5 border rounded-2xl transition-all duration-300 hover:bg-muted/30 cursor-pointer ${warningStyle}`}>
                       <div className="flex items-start justify-between gap-3">
                         <div className="space-y-1.5 min-w-0">

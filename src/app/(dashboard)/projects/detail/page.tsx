@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import React, { useEffect, useState, useRef, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useProjectStore, Project, HandoverPhase, Material } from '@/store/useProjectStore';
 import { ConfirmationModal } from '@/components/custom/ConfirmationModal';
 import { Button } from '@/components/ui/button';
@@ -34,9 +34,17 @@ import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
 export default function ProjectDetailPage() {
-  const params = useParams();
+  return (
+    <Suspense fallback={<div className="text-center py-20 text-xs font-semibold text-muted-foreground">Đang tải chi tiết dự án...</div>}>
+      <ProjectDetailPageContent />
+    </Suspense>
+  );
+}
+
+function ProjectDetailPageContent() {
   const router = useRouter();
-  const projectId = params.id as string;
+  const searchParams = useSearchParams();
+  const projectId = searchParams.get('id') as string;
 
   const {
     projects,

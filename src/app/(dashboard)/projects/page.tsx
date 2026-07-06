@@ -305,7 +305,7 @@ export default function ProjectsPage() {
                       exit={{ opacity: 0, y: -20 }}
                       transition={{ duration: 0.4, delay: idx * 0.05 }}
                     >
-                      <Link href={`/projects/${project.id}`} className="block group">
+                      <Link href={`/projects/detail?id=${project.id}`} className="block group">
                         <Card
                           className={`rounded-3xl border transition-all duration-300 hover:shadow-2xl hover:scale-[1.01] bg-card/45 backdrop-blur-xl flex flex-col justify-between overflow-hidden h-full cursor-pointer neon-card-glow ${
                             isNearDeadline

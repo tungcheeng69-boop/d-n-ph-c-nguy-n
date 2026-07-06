@@ -99,7 +99,7 @@ interface ProjectState {
   disconnectCloud: () => void;
   fetchCloudData: () => Promise<void>;
 
-  // Instant Cloud Sync Config (jsonblob.com)
+  // Instant Cloud Sync Config (api.restful-api.dev)
   instantSyncCode: string;
   isInstantSyncConnected: boolean;
   createInstantSync: () => Promise<{ success: boolean; syncCode?: string; message: string }>;
@@ -318,22 +318,24 @@ export const useProjectStore = create<ProjectState>()(
         return createDynamicSupabaseClient(supabaseUrl, supabaseKey);
       };
 
-      // Helper tự động push dữ liệu lên jsonblob.com (Instant Cloud Sync - Hỗ trợ CORS 100% & Không giới hạn kích thước key)
+      // Helper tự động push dữ liệu lên api.restful-api.dev (Instant Cloud Sync - Hỗ trợ CORS 100% & Trả về ID trong BODY)
       const triggerInstantSyncPush = async () => {
         const { isInstantSyncConnected, instantSyncCode, users, projects, activityLogs, comments } = get();
         if (!isInstantSyncConnected || !instantSyncCode) return;
         try {
-          await fetch(`https://jsonblob.com/api/jsonBlob/${instantSyncCode}`, {
+          await fetch(`https://api.restful-api.dev/objects/${instantSyncCode}`, {
             method: 'PUT',
             headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json'
+              'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-              users,
-              projects,
-              activityLogs,
-              comments
+              name: 'TechProject_Sync_Blob',
+              data: {
+                users,
+                projects,
+                activityLogs,
+                comments
+              }
             })
           });
         } catch (error) {
@@ -482,7 +484,7 @@ export const useProjectStore = create<ProjectState>()(
           }
         },
 
-        // Instant Cloud Sync (jsonblob.com) Implementation (CORS 100% Ok & Cho phép lưu trữ lớn)
+        // Instant Cloud Sync (api.restful-api.dev) Implementation (CORS 100% Ok & Trả về ID trong BODY)
         instantSyncCode: '',
         isInstantSyncConnected: false,
 
@@ -495,27 +497,29 @@ export const useProjectStore = create<ProjectState>()(
               comments: get().comments,
             };
 
-            // Gọi API jsonblob.com để tạo mới một JSON blob lưu trữ đám mây
-            const response = await fetch('https://jsonblob.com/api/jsonBlob', {
+            // Gọi API tạo mới object
+            const response = await fetch('https://api.restful-api.dev/objects', {
               method: 'POST',
               headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
+                'Content-Type': 'application/json'
               },
-              body: JSON.stringify(currentData),
+              body: JSON.stringify({
+                name: 'TechProject_Sync_Blob',
+                data: currentData
+              }),
             });
 
             if (!response.ok) {
               throw new Error('Máy chủ đám mây từ chối khởi tạo. Vui lòng thử lại sau.');
             }
 
-            // Lấy ID từ Header Location trả về của server
-            const location = response.headers.get('Location') || response.headers.get('location');
-            if (!location) {
-              throw new Error('Không nhận được địa chỉ dữ liệu từ máy chủ đám mây.');
-            }
+            // Đọc ID trực tiếp từ BODY JSON trả về!
+            const resData = await response.json();
+            const code = resData.id;
 
-            const code = location.substring(location.lastIndexOf('/') + 1);
+            if (!code) {
+              throw new Error('Không nhận được mã định danh từ máy chủ đám mây.');
+            }
 
             // Ngắt kết nối Supabase khi bật Instant Sync
             set({
@@ -535,18 +539,16 @@ export const useProjectStore = create<ProjectState>()(
 
         connectInstantSync: async (code) => {
           try {
-            const response = await fetch(`https://jsonblob.com/api/jsonBlob/${code}`, {
-              headers: {
-                'Accept': 'application/json'
-              }
-            });
+            const response = await fetch(`https://api.restful-api.dev/objects/${code}`);
             if (!response.ok) {
               throw new Error('Mã đồng bộ không tồn tại hoặc đã hết hạn.');
             }
 
-            const data = await response.json();
-            if (!data.users || !data.projects) {
-              throw new Error('Dữ liệu đồng bộ không đúng định dạng.');
+            const resData = await response.json();
+            const data = resData.data;
+
+            if (!data || !data.users || !data.projects) {
+              throw new Error('Dữ liệu đồng bộ không đúng định dạng hoặc trống.');
             }
 
             // Kết nối thành công -> Lưu code và ghi đè dữ liệu local
@@ -583,14 +585,11 @@ export const useProjectStore = create<ProjectState>()(
           const { isInstantSyncConnected, instantSyncCode } = get();
           if (!isInstantSyncConnected || !instantSyncCode) return;
           try {
-            const response = await fetch(`https://jsonblob.com/api/jsonBlob/${instantSyncCode}`, {
-              headers: {
-                'Accept': 'application/json'
-              }
-            });
+            const response = await fetch(`https://api.restful-api.dev/objects/${instantSyncCode}`);
             if (!response.ok) return;
-            const data = await response.json();
-            if (data.users && data.projects) {
+            const resData = await response.json();
+            const data = resData.data;
+            if (data && data.users && data.projects) {
               set({
                 users: data.users,
                 projects: data.projects,

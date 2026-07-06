@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "deploy": "cross-env DEPLOY_TARGET=github-pages next build && gh-pages -d out"
+    "deploy": "cross-env DEPLOY_TARGET=github-pages next build && gh-pages -t -d out"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

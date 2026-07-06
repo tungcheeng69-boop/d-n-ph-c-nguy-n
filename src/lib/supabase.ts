@@ -8,7 +8,11 @@ export const supabase = defaultUrl && defaultKey ? createClient(defaultUrl, defa
 export function createDynamicSupabaseClient(url: string, key: string) {
   if (!url || !key) return null;
   try {
-    return createClient(url, key);
+    let cleanUrl = url.trim();
+    if (cleanUrl.endsWith('/')) {
+      cleanUrl = cleanUrl.slice(0, -1);
+    }
+    return createClient(cleanUrl, key.trim());
   } catch (error) {
     console.error('Lỗi khởi tạo Supabase client:', error);
     return null;
